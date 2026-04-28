@@ -1,0 +1,4 @@
+# Dev environment overrides.
+# CI updates image.tag here via a PR on every successful image push.
+image:
+  tag: "latest"

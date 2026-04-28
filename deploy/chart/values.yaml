@@ -1,0 +1,26 @@
+replicaCount: 1
+
+image:
+  repository: ghcr.io/ad-1/sentic-notifier
+  pullPolicy: IfNotPresent
+  # Overridden per environment in values-<env>.yaml. CI writes the new tag there via PR.
+  tag: ""
+
+# RabbitMQ connection — credentials come from the secret auto-created by the
+# RabbitMQ Cluster Operator. Do not hard-code credentials here.
+rabbitmq:
+  secretName: definition-default-user
+  queue: notifications
+
+# Telegram bot credentials must be provisioned separately as a K8s secret.
+# See docs/ONBOARDING.md § Secrets and Credentials.
+telegram:
+  secretName: sentic-notifier-telegram
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi

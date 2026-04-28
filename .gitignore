@@ -1,0 +1,22 @@
+# Environment
+.env
+.venv/
+poetry.toml
+
+# Coverage files
+.coverage
+htmlcov/
+
+# VS Code
+.vscode/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+.pytest_cache/
+dist/
+build/
+*.egg-info/
