@@ -1,0 +1,128 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+  packages: write
+  pull-requests: write
+
+env:
+  IMAGE_NAME: ghcr.io/ad-1/sentic-notifier
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Run unit tests (always — PR and push to main)
+  # Integration tests (tests/integration/) require live Telegram credentials
+  # and are excluded from CI; run them manually against a real environment.
+  # ---------------------------------------------------------------------------
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install --no-cache-dir poetry
+          poetry config virtualenvs.create false
+          poetry install
+
+      - name: Run unit tests
+        run: |
+          poetry run pytest tests/unit \
+            --cov=sentic_notifier \
+            --cov-report=term-missing
+
+  # ---------------------------------------------------------------------------
+  # Build image, scan for vulnerabilities, push to GHCR.
+  # Only runs on push to main after tests pass.
+  # ---------------------------------------------------------------------------
+  build-and-push:
+    name: Build & Push
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,prefix=sha-
+            type=raw,value=latest
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+
+      # Scan the pushed image — fails the job on any CRITICAL finding,
+      # which prevents the image tag write-back and ArgoCD deployment.
+      - name: Trivy vulnerability scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.IMAGE_NAME }}:latest
+          format: table
+          exit-code: '1'
+          severity: CRITICAL
+
+  # ---------------------------------------------------------------------------
+  # Write the new image SHA tag back to values-dev.yaml via a PR.
+  # ArgoCD detects the merged PR and syncs the cluster.
+  # ---------------------------------------------------------------------------
+  update-image-tag:
+    name: Update Image Tag
+    needs: build-and-push
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compute short SHA
+        id: sha
+        run: echo "short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Update image tag in values-dev.yaml
+        run: |
+          sed -i 's/^  tag: .*/  tag: "sha-${{ steps.sha.outputs.short }}"/' \
+            deploy/chart/values-dev.yaml
+
+      - name: Open pull request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "ci: update sentic-notifier image tag to sha-${{ steps.sha.outputs.short }}"
+          branch: ci/image-tag-${{ steps.sha.outputs.short }}
+          delete-branch: true
+          title: "ci: bump sentic-notifier image tag → sha-${{ steps.sha.outputs.short }}"
+          body: |
+            Automated image tag update from CI.
+
+            **Image:** `ghcr.io/ad-1/sentic-notifier:sha-${{ steps.sha.outputs.short }}`
+            **Commit:** ${{ github.sha }}
+
+            Merge this PR to trigger an ArgoCD sync and deploy the new image.
+          base: main
