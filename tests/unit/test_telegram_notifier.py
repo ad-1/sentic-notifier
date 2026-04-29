@@ -111,10 +111,10 @@ class TestEscape:
 # ---------------------------------------------------------------------------
 
 class TestDryRun:
-    def test_dry_run_returns_true(self, dry_run_notifier: TelegramNotifier, sample_signal: Signal) -> None:
+    def test_dry_run_returns_true(self, dry_run_notifier: TelegramNotifier, sample_signal: NotificationPayload) -> None:
         assert dry_run_notifier.send_signal(sample_signal) is True
 
-    def test_dry_run_makes_no_http_calls(self, dry_run_notifier: TelegramNotifier, sample_signal: Signal) -> None:
+    def test_dry_run_makes_no_http_calls(self, dry_run_notifier: TelegramNotifier, sample_signal: NotificationPayload) -> None:
         with patch("sentic_notifier.notifier.telegram.requests.post") as mock_post:
             dry_run_notifier.send_signal(sample_signal)
             mock_post.assert_not_called()
