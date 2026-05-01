@@ -111,6 +111,7 @@ jobs:
             deploy/chart/values-dev.yaml
 
       - name: Open pull request
+        id: cpr
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -126,3 +127,19 @@ jobs:
 
             Merge this PR to trigger an ArgoCD sync and deploy the new image.
           base: main
+
+      - name: Enable auto-merge for image tag PR
+        id: auto_merge
+        if: steps.cpr.outputs.pull-request-number != ''
+        continue-on-error: true
+        uses: peter-evans/enable-pull-request-automerge@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          pull-request-number: ${{ steps.cpr.outputs.pull-request-number }}
+          merge-method: squash
+
+      - name: Warn when auto-merge could not be enabled
+        if: steps.auto_merge.outcome == 'failure'
+        run: |
+          echo "::warning::Auto-merge could not be enabled for the image-tag PR."
+          echo "::warning::Enable repository auto-merge and verify branch protection/merge settings."
