@@ -1,4 +1,4 @@
 # Dev environment overrides.
 # CI updates image.tag here via a PR on every successful image push.
 image:
-  tag: "sha-7637595"
+  tag: "sha-d515456"
