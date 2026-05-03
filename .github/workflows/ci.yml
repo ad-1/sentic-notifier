@@ -26,10 +26,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python 3.11
+      - name: Set up Python 3.13
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.13"
 
       - name: Install dependencies
         run: |
@@ -90,7 +90,7 @@ jobs:
           severity: CRITICAL
 
   # ---------------------------------------------------------------------------
-  # Write the new image SHA tag back to values-dev.yaml via a PR.
+  # Write the new image SHA tag back to values.yaml via a PR.
   # ArgoCD detects the merged PR and syncs the cluster.
   # ---------------------------------------------------------------------------
   update-image-tag:
@@ -105,20 +105,20 @@ jobs:
         id: sha
         run: echo "short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
-      - name: Update image tag in values-dev.yaml
+      - name: Update image tag in values.yaml
         run: |
           sed -i 's/^  tag: .*/  tag: "sha-${{ steps.sha.outputs.short }}"/' \
-            deploy/chart/values-dev.yaml
+            deploy/chart/values.yaml
 
       - name: Open pull request
         id: cpr
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "ci: update sentic-notifier image tag to sha-${{ steps.sha.outputs.short }}"
+          commit-message: "SEN-0: update sentic-notifier image tag to sha-${{ steps.sha.outputs.short }}"
           branch: ci/image-tag-${{ steps.sha.outputs.short }}
           delete-branch: true
-          title: "ci: bump sentic-notifier image tag → sha-${{ steps.sha.outputs.short }}"
+          title: "SEN-0: bump sentic-notifier image tag → sha-${{ steps.sha.outputs.short }}"
           body: |
             Automated image tag update from CI.
 
