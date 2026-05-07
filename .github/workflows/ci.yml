@@ -143,3 +143,29 @@ jobs:
         run: |
           echo "::warning::Auto-merge could not be enabled for the image-tag PR."
           echo "::warning::Enable repository auto-merge and verify branch protection/merge settings."
+
+  # ---------------------------------------------------------------------------
+  # Prune GHCR: delete all untagged versions and keep only the 3 most recent
+  # tagged versions. Runs after the image is pushed so the new image is safe.
+  # ---------------------------------------------------------------------------
+  prune-ghcr:
+    name: Prune GHCR
+    needs: build-and-push
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Delete untagged package versions
+        uses: actions/delete-package-versions@v5
+        with:
+          package-name: sentic-notifier
+          package-type: container
+          min-versions-to-keep: 0
+          delete-only-untagged-versions: true
+
+      - name: Keep only 3 most recent tagged versions
+        uses: actions/delete-package-versions@v5
+        with:
+          package-name: sentic-notifier
+          package-type: container
+          min-versions-to-keep: 3
+          ignore-versions: '^latest$'
